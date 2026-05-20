@@ -1,24 +1,24 @@
-// File: ui/menu.js
 FC.register('menu', {
     isOpen: false,
     listeningFor: null,
 
     init() {
-        // Load saved settings
-        const saved = localStorage.getItem('fc_settings');
-        if (saved) FC.settings = Object.assign(FC.settings, JSON.parse(saved));
-        
-        // Load saved keybinds
+        // Init settings and binds
+        const savedSettings = localStorage.getItem('fc_settings');
+        if (savedSettings) FC.settings = Object.assign(FC.settings, JSON.parse(savedSettings));
+
         FC.keybinds = JSON.parse(localStorage.getItem('fc_kb') || '{"hjar":"KeyH", "xhair":"KeyX", "autoAct":"KeyF"}');
         
         this.buildMenu();
         this.setupEvents();
-        this.createStatus();
     },
 
     setupEvents() {
         window.addEventListener('keyup', (e) => {
-            // Rebinding logic
+            // Check if user is typing in chat/search
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+            // Rebind logic
             if (this.listeningFor) {
                 FC.keybinds[this.listeningFor] = e.code;
                 localStorage.setItem('fc_kb', JSON.stringify(FC.keybinds));
@@ -28,33 +28,24 @@ FC.register('menu', {
                 return;
             }
 
-            // Don't trigger if in chat
-            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-
-            // Right Shift to open menu
+            // MENU TOGGLE
             if (e.code === 'ShiftRight') {
                 this.isOpen = !this.isOpen;
-                const menu = document.getElementById('fc-menu');
-                if (menu) {
-                    menu.classList.toggle('open', this.isOpen);
+                const m = document.getElementById('fc-menu');
+                if (m) {
+                    m.classList.toggle('open', this.isOpen);
                     if (this.isOpen) document.exitPointerLock?.();
                 }
             }
 
-            // Close with Escape
-            if (e.code === 'Escape' && this.isOpen) {
-                this.isOpen = false;
-                document.getElementById('fc-menu').classList.remove('open');
-            }
-
-            // Keybind Feature Toggles
-            if (e.code === FC.keybinds.hjar) this.toggleSetting('hjarEnabled', 'Hjar');
-            if (e.code === FC.keybinds.xhair) this.toggleSetting('xhairEnabled', 'Crosshair');
-            if (e.code === FC.keybinds.autoAct) this.toggleSetting('autoEnabled', 'Auto Action');
+            // Feature Quick-Toggles
+            if (e.code === FC.keybinds.hjar) this.toggle('hjarEnabled', 'Hjar');
+            if (e.code === FC.keybinds.xhair) this.toggle('xhairEnabled', 'Crosshair');
+            if (e.code === FC.keybinds.autoAct) this.toggle('autoEnabled', 'Auto Action');
         });
     },
 
-    toggleSetting(key, name) {
+    toggle(key, name) {
         FC.settings[key] = !FC.settings[key];
         localStorage.setItem('fc_settings', JSON.stringify(FC.settings));
         FC.showToast(`${name}: ${FC.settings[key] ? 'ON' : 'OFF'}`);
@@ -70,18 +61,14 @@ FC.register('menu', {
         }
 
         menu.innerHTML = `
-            <div id="fc-menu-title">☠ Fallen Client<span>R-SHIFT = Menu &bull; CLICK KEY = REBIND</span></div>
+            <div id="fc-menu-title">☠ Fallen Client<span>RIGHT SHIFT = MENU &bull; CLICK KEY = REBIND</span></div>
             <div id="fc-menu-body"></div>
         `;
 
         const body = menu.querySelector('#fc-menu-body');
-        
-        body.appendChild(this.createSection('Combat'));
         body.appendChild(this.makeRow('Hjar Detection', 'Highlight enemies', 'hjarEnabled', 'hjar'));
-        body.appendChild(this.makeRow('Auto Action', 'Trigger on target', 'autoEnabled', 'autoAct'));
-        
-        body.appendChild(this.createSection('Visuals'));
-        body.appendChild(this.makeRow('Custom Crosshair', 'Use custom crosshair', 'xhairEnabled', 'xhair'));
+        body.appendChild(this.makeRow('Auto Action', 'Trigger on player', 'autoEnabled', 'autoAct'));
+        body.appendChild(this.makeRow('Custom Crosshair', 'Replacement xhair', 'xhairEnabled', 'xhair'));
     },
 
     makeRow(label, desc, settingKey, kbKey) {
@@ -97,30 +84,14 @@ FC.register('menu', {
                 <div class="fc-tog ${FC.settings[settingKey] ? 'on' : ''}"></div>
             </div>
         `;
-
         row.onclick = (e) => {
             if (e.target.classList.contains('fc-kb')) {
                 this.listeningFor = kbKey;
                 e.target.textContent = '...';
                 return;
             }
-            this.toggleSetting(settingKey, label);
+            this.toggle(settingKey, label);
         };
         return row;
-    },
-
-    createSection(name) {
-        const div = document.createElement('div');
-        div.className = 'fc-sec';
-        div.textContent = name;
-        return div;
-    },
-
-    createStatus() {
-        const el = document.createElement('div');
-        el.id = 'fc-status';
-        el.style.cssText = "position:fixed; bottom:10px; left:10px; color:cyan; z-index:100000; font-family:monospace; font-size:12px; pointer-events:none;";
-        el.textContent = '☠ FC v' + FC.version;
-        document.body.appendChild(el);
     }
 });
