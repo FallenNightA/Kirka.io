@@ -66,7 +66,7 @@
     // =========================================================
 
     const BASE =
-        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/';
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/refs/heads/main/';
 
     // =========================================================
     // LOAD ORDER
