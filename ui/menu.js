@@ -1,54 +1,58 @@
+// File: ui/menu.js
 FC.register('menu', {
     isOpen: false,
     listeningFor: null,
 
     init() {
-        // Init settings and binds
-        const savedSettings = localStorage.getItem('fc_settings');
-        if (savedSettings) FC.settings = Object.assign(FC.settings, JSON.parse(savedSettings));
+        // 1. Sync Settings from Storage
+        const saved = localStorage.getItem('fc_settings');
+        if (saved) FC.settings = Object.assign(FC.settings, JSON.parse(saved));
 
-        FC.keybinds = JSON.parse(localStorage.getItem('fc_kb') || '{"hjar":"KeyH", "xhair":"KeyX", "autoAct":"KeyF"}');
+        // 2. Sync Binds
+        FC.binds = JSON.parse(localStorage.getItem('fc_kb') || '{"hjar":"KeyH", "xhair":"KeyX", "auto":"KeyF"}');
         
+        this.createStatus();
         this.buildMenu();
-        this.setupEvents();
+        this.setupKeyHandlers();
     },
 
-    setupEvents() {
+    setupKeyHandlers() {
+        // Using 'keyup' for maximum compatibility with Kirka's engine
         window.addEventListener('keyup', (e) => {
-            // Check if user is typing in chat/search
+            // Prevent triggering if typing in chat
             if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
 
-            // Rebind logic
+            // Handle Rebinding
             if (this.listeningFor) {
-                FC.keybinds[this.listeningFor] = e.code;
-                localStorage.setItem('fc_kb', JSON.stringify(FC.keybinds));
-                FC.showToast(`Bound to ${e.code}`);
+                FC.binds[this.listeningFor] = e.code;
+                localStorage.setItem('fc_kb', JSON.stringify(FC.binds));
+                if (FC.showToast) FC.showToast(`Bind: ${this.listeningFor} -> ${e.code}`);
                 this.listeningFor = null;
                 this.buildMenu();
                 return;
             }
 
-            // MENU TOGGLE
+            // Right Shift to open
             if (e.code === 'ShiftRight') {
                 this.isOpen = !this.isOpen;
-                const m = document.getElementById('fc-menu');
-                if (m) {
-                    m.classList.toggle('open', this.isOpen);
+                const menu = document.getElementById('fc-menu');
+                if (menu) {
+                    menu.classList.toggle('open', this.isOpen);
                     if (this.isOpen) document.exitPointerLock?.();
                 }
             }
 
-            // Feature Quick-Toggles
-            if (e.code === FC.keybinds.hjar) this.toggle('hjarEnabled', 'Hjar');
-            if (e.code === FC.keybinds.xhair) this.toggle('xhairEnabled', 'Crosshair');
-            if (e.code === FC.keybinds.autoAct) this.toggle('autoEnabled', 'Auto Action');
+            // Quick Toggle Keys
+            if (e.code === FC.binds.hjar) this.toggle('hjarEnabled', 'Hjar');
+            if (e.code === FC.binds.xhair) this.toggle('xhairEnabled', 'Crosshair');
+            if (e.code === FC.binds.auto) this.toggle('autoEnabled', 'Auto Action');
         });
     },
 
     toggle(key, name) {
         FC.settings[key] = !FC.settings[key];
         localStorage.setItem('fc_settings', JSON.stringify(FC.settings));
-        FC.showToast(`${name}: ${FC.settings[key] ? 'ON' : 'OFF'}`);
+        if (FC.showToast) FC.showToast(`${name}: ${FC.settings[key] ? 'ON' : 'OFF'}`);
         this.buildMenu();
     },
 
@@ -62,36 +66,55 @@ FC.register('menu', {
 
         menu.innerHTML = `
             <div id="fc-menu-title">☠ Fallen Client<span>RIGHT SHIFT = MENU &bull; CLICK KEY = REBIND</span></div>
-            <div id="fc-menu-body"></div>
+            <div id="fc-menu-body">
+                <div class="fc-sec">Combat</div>
+                ${this.renderRow('Hjar Detection', 'hjarEnabled', 'hjar')}
+                ${this.renderRow('Auto Action', 'autoEnabled', 'auto')}
+                <div class="fc-sec">Visuals</div>
+                ${this.renderRow('Custom Crosshair', 'xhairEnabled', 'xhair')}
+            </div>
         `;
-
-        const body = menu.querySelector('#fc-menu-body');
-        body.appendChild(this.makeRow('Hjar Detection', 'Highlight enemies', 'hjarEnabled', 'hjar'));
-        body.appendChild(this.makeRow('Auto Action', 'Trigger on player', 'autoEnabled', 'autoAct'));
-        body.appendChild(this.makeRow('Custom Crosshair', 'Replacement xhair', 'xhairEnabled', 'xhair'));
     },
 
-    makeRow(label, desc, settingKey, kbKey) {
-        const row = document.createElement('div');
-        row.className = 'fc-row';
-        row.innerHTML = `
-            <div>
+    renderRow(label, settingKey, bindKey) {
+        // Generates the HTML for a menu setting row
+        const active = FC.settings[settingKey] ? 'on' : '';
+        const keyName = FC.binds[bindKey].replace('Key', '');
+        
+        // We return the string and then set it via innerHTML in buildMenu
+        const rowId = `row-${settingKey}`;
+        
+        // Add events after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            const el = document.getElementById(rowId);
+            if (el) {
+                el.onclick = (e) => {
+                    if (e.target.classList.contains('fc-kb')) {
+                        this.listeningFor = bindKey;
+                        e.target.textContent = '...';
+                        return;
+                    }
+                    this.toggle(settingKey, label);
+                };
+            }
+        }, 50);
+
+        return `
+            <div class="fc-row" id="${rowId}">
                 <div class="fc-label">${label}</div>
-                <div class="fc-desc">${desc}</div>
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <div class="fc-kb" id="kb-${kbKey}">${FC.keybinds[kbKey].replace('Key','')}</div>
-                <div class="fc-tog ${FC.settings[settingKey] ? 'on' : ''}"></div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div class="fc-kb">${keyName}</div>
+                    <div class="fc-tog ${active}"></div>
+                </div>
             </div>
         `;
-        row.onclick = (e) => {
-            if (e.target.classList.contains('fc-kb')) {
-                this.listeningFor = kbKey;
-                e.target.textContent = '...';
-                return;
-            }
-            this.toggle(settingKey, label);
-        };
-        return row;
+    },
+
+    createStatus() {
+        const s = document.createElement('div');
+        s.id = 'fc-status';
+        s.style = "position:fixed; bottom:10px; left:10px; color:cyan; font-family:monospace; font-size:11px; z-index:99999; pointer-events:none;";
+        s.textContent = `☠ FC v${FC.version} | Engine Ready`;
+        document.body.appendChild(s);
     }
 });
