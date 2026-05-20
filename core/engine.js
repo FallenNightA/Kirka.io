@@ -1,38 +1,38 @@
-// File: core/engine.js
 FC.register('engine', {
     init() {
-        this.setupHooks();
+        this.hookRendering();
     },
 
-    setupHooks() {
+    hookRendering() {
         const originalIsArray = Array.isArray;
 
         Array.isArray = function (arg) {
             const result = originalIsArray(arg);
             if (!arg) return result;
 
-            // Texture detection for Kirka Players (64x64 size)
+            // Target Player Materials (64x64 textures)
             if (arg.map && arg.map.image && arg.map.image.width === 64) {
                 
-                // 1. Skin Link Integration (Chams)
+                // 1. INTEGRATED SKIN CHANGER LOGIC
                 if (localStorage.csl_enabled === "true") {
-                    let useurl = localStorage.csl_url_or_base64 === "false" 
+                    const skinUrl = localStorage.csl_url_or_base64 === "false" 
                         ? localStorage.csl_url 
                         : localStorage.csl_colorpicker_inputurl;
                     
-                    if (useurl && arg.map.image.src !== useurl) {
-                        arg.map.image.src = useurl;
+                    if (skinUrl && arg.map.image.src !== skinUrl) {
+                        arg.map.image.src = skinUrl;
                     }
                 }
 
-                // 2. Engine/Wallhack Logic
+                // 2. INTEGRATED WALLHACK/CHAMS LOGIC
+                // We set depthTest to false so players are visible through walls
                 try {
-                    // This allows seeing through walls
                     arg.depthTest = false; 
-                    for (let k in arg) {
-                        if (arg[k] === 3) { 
-                            arg[k] = 1; 
-                            FC.state.fcReady = true; 
+                    for (let key in arg) {
+                        // Change material type to MeshBasicMaterial (1) to ignore lighting/walls
+                        if (arg[key] === 3) { 
+                            arg[key] = 1; 
+                            FC.state.fcReady = true;
                             break; 
                         }
                     }
@@ -41,9 +41,9 @@ FC.register('engine', {
             return result;
         };
 
-        // Capture WebGL Context for Hjar (Pixel detection)
+        // Hook WebGL for Pixel Detection (Hjar)
         const _origGetCtx = HTMLCanvasElement.prototype.getContext;
-        HTMLCanvasElement.prototype.getContext = function(type, a) {
+        HTMLCanvasElement.prototype.getContext = function(type) {
             const ctx = _origGetCtx.apply(this, arguments);
             if ((type === 'webgl' || type === 'webgl2') && !FC.state.glCanvas) {
                 FC.state.glCanvas = this;
