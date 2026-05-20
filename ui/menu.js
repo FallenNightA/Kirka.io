@@ -4,7 +4,11 @@ FC.register('menu', {
     listeningFor: null,
 
     init() {
-        // Load Keybinds
+        // Load saved settings
+        const saved = localStorage.getItem('fc_settings');
+        if (saved) FC.settings = Object.assign(FC.settings, JSON.parse(saved));
+        
+        // Load saved keybinds
         FC.keybinds = JSON.parse(localStorage.getItem('fc_kb') || '{"hjar":"KeyH", "xhair":"KeyX", "autoAct":"KeyF"}');
         
         this.buildMenu();
@@ -12,84 +16,49 @@ FC.register('menu', {
         this.createStatus();
     },
 
-    saveKB() {
-        localStorage.setItem('fc_kb', JSON.stringify(FC.keybinds));
-    },
-
-    createStatus() {
-        const el = document.createElement('div');
-        el.id = 'fc-status';
-        el.textContent = '☠ FC v' + FC.version;
-        document.body.appendChild(el);
-    },
-
     setupEvents() {
-        window.addEventListener('keydown', (e) => {
-            // Rebind logic
+        window.addEventListener('keyup', (e) => {
+            // Rebinding logic
             if (this.listeningFor) {
-                e.preventDefault();
                 FC.keybinds[this.listeningFor] = e.code;
-                this.saveKB();
-                FC.showToast(`${this.listeningFor} bound to ${e.code}`);
+                localStorage.setItem('fc_kb', JSON.stringify(FC.keybinds));
+                FC.showToast(`Bound to ${e.code}`);
                 this.listeningFor = null;
-                this.buildMenu(); // Refresh UI
+                this.buildMenu();
                 return;
             }
 
-            // Don't trigger if typing in chat
-            if (document.activeElement.tagName === 'INPUT') return;
+            // Don't trigger if in chat
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
 
-            // Toggle Menu
+            // Right Shift to open menu
             if (e.code === 'ShiftRight') {
                 this.isOpen = !this.isOpen;
-                document.getElementById('fc-menu').classList.toggle('open', this.isOpen);
+                const menu = document.getElementById('fc-menu');
+                if (menu) {
+                    menu.classList.toggle('open', this.isOpen);
+                    if (this.isOpen) document.exitPointerLock?.();
+                }
             }
 
-            // Close menu on Esc
+            // Close with Escape
             if (e.code === 'Escape' && this.isOpen) {
                 this.isOpen = false;
                 document.getElementById('fc-menu').classList.remove('open');
             }
 
-            // Feature Binds
+            // Keybind Feature Toggles
             if (e.code === FC.keybinds.hjar) this.toggleSetting('hjarEnabled', 'Hjar');
             if (e.code === FC.keybinds.xhair) this.toggleSetting('xhairEnabled', 'Crosshair');
-            if (e.code === FC.keybinds.autoAct) this.toggleSetting('autoEnabled', 'Auto Shot');
+            if (e.code === FC.keybinds.autoAct) this.toggleSetting('autoEnabled', 'Auto Action');
         });
     },
 
     toggleSetting(key, name) {
         FC.settings[key] = !FC.settings[key];
-        FC.showToast(`${name}: ${FC.settings[key] ? 'ON' : 'OFF'}`);
-        // Trigger save in storage module (if created) or here
         localStorage.setItem('fc_settings', JSON.stringify(FC.settings));
+        FC.showToast(`${name}: ${FC.settings[key] ? 'ON' : 'OFF'}`);
         this.buildMenu();
-    },
-
-    makeRow(label, desc, settingKey, kbKey) {
-        const row = document.createElement('div');
-        row.className = 'fc-row';
-        row.innerHTML = `
-            <div>
-                <div class="fc-label">${label}</div>
-                <div class="fc-desc">${desc}</div>
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-                ${kbKey ? `<div class="fc-kb" id="kb-${kbKey}">${FC.keybinds[kbKey].replace('Key','')}</div>` : ''}
-                <div class="fc-tog ${FC.settings[settingKey] ? 'on' : ''}"></div>
-            </div>
-        `;
-
-        row.onclick = (e) => {
-            if (e.target.classList.contains('fc-kb')) {
-                this.listeningFor = kbKey;
-                e.target.textContent = '...';
-                e.target.classList.add('listening');
-                return;
-            }
-            this.toggleSetting(settingKey, label);
-        };
-        return row;
     },
 
     buildMenu() {
@@ -108,13 +77,36 @@ FC.register('menu', {
         const body = menu.querySelector('#fc-menu-body');
         
         body.appendChild(this.createSection('Combat'));
-        body.appendChild(this.makeRow('Hjar Detection', 'Color-changing crosshair', 'hjarEnabled', 'hjar'));
-        body.appendChild(this.makeRow('Auto Action', 'Auto shoot or chat', 'autoEnabled', 'autoAct'));
+        body.appendChild(this.makeRow('Hjar Detection', 'Highlight enemies', 'hjarEnabled', 'hjar'));
+        body.appendChild(this.makeRow('Auto Action', 'Trigger on target', 'autoEnabled', 'autoAct'));
         
         body.appendChild(this.createSection('Visuals'));
-        body.appendChild(this.makeRow('Custom Crosshair', 'Replacement crosshair', 'xhairEnabled', 'xhair'));
-        
-        // Add more rows as needed
+        body.appendChild(this.makeRow('Custom Crosshair', 'Use custom crosshair', 'xhairEnabled', 'xhair'));
+    },
+
+    makeRow(label, desc, settingKey, kbKey) {
+        const row = document.createElement('div');
+        row.className = 'fc-row';
+        row.innerHTML = `
+            <div>
+                <div class="fc-label">${label}</div>
+                <div class="fc-desc">${desc}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div class="fc-kb" id="kb-${kbKey}">${FC.keybinds[kbKey].replace('Key','')}</div>
+                <div class="fc-tog ${FC.settings[settingKey] ? 'on' : ''}"></div>
+            </div>
+        `;
+
+        row.onclick = (e) => {
+            if (e.target.classList.contains('fc-kb')) {
+                this.listeningFor = kbKey;
+                e.target.textContent = '...';
+                return;
+            }
+            this.toggleSetting(settingKey, label);
+        };
+        return row;
     },
 
     createSection(name) {
@@ -122,5 +114,13 @@ FC.register('menu', {
         div.className = 'fc-sec';
         div.textContent = name;
         return div;
+    },
+
+    createStatus() {
+        const el = document.createElement('div');
+        el.id = 'fc-status';
+        el.style.cssText = "position:fixed; bottom:10px; left:10px; color:cyan; z-index:100000; font-family:monospace; font-size:12px; pointer-events:none;";
+        el.textContent = '☠ FC v' + FC.version;
+        document.body.appendChild(el);
     }
 });
