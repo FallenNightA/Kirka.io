@@ -18,30 +18,18 @@
             hjarEnabled: false,
             xhairEnabled: true,
             autoEnabled: false,
-            xhairColor: '#00ffff',
-            xhairSize: 10,
-            xhairThick: 2,
-            xhairGap: 5,
-            xhairStyle: 'cross'
+            xhairColor: '#00ffff'
         },
-        state: { 
-            fcReady: false, 
-            hjarState: 'none',
-            glCanvas: null,
-            glCtx: null
-        },
-        loaded: false,
-
+        state: { fcReady: false, hjarState: 'none', glCanvas: null, glCtx: null },
         log(...msg) {
             console.log('%c[FALLEN CLIENT]', 'color: cyan; font-weight: bold;', ...msg);
         },
-
         register(name, module) {
             this.modules[name] = module;
             if (typeof module.init === 'function') {
                 try {
                     module.init();
-                    this.log('Initialized:', name);
+                    this.log('Loaded module:', name);
                 } catch (err) {
                     console.error(`[FC] Failed init ${name}`, err);
                 }
@@ -59,34 +47,44 @@
         });
     }
 
-    const BASE = 'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/';
-
     const scripts = [
-        'core/storage.js',
-        'core/events.js',
-        'core/engine.js',
-        'utils/math.js',
-        'utils/colors.js',
-        'utils/dom.js',
-        'ui/css.js',
-        'ui/toast.js',
-        'ui/menu.js',
-        'features/crosshair.js',
-        'features/hjar.js',
-        'features/autoshot.js',
-        'features/hitsound.js'
+        // CORE & UTILS
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/core/storage.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/core/events.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/core/engine.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/utils/math.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/utils/colors.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/utils/dom.js',
+
+        // UI
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/ui/css.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/ui/toast.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/ui/menu.js',
+
+        // FEATURES (Modular)
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/features/crosshair.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/features/hjar.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/features/autoshot.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/features/hitsound.js',
+
+        // FEATURES (Legacy - No folder)
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/chams.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/keystroke-overlay.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/friends_ui_features.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/accept-trade-easly.js',
+        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/global-chat-css.js'
     ];
 
     async function init() {
-        FC.log('Starting Fallen Client v' + FC.version);
-        for (const file of scripts) {
+        FC.log('Initializing Loader...');
+        for (const url of scripts) {
             try {
-                await loadScript(BASE + file);
+                await loadScript(url);
             } catch (e) {
-                console.error('[FC] Failed loading:', file);
+                console.error('[FC] Failed loading URL:', url);
             }
         }
-        FC.loaded = true;
+        FC.log('All scripts executed.');
     }
 
     if (document.readyState === 'loading') {
