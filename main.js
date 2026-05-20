@@ -5,19 +5,17 @@
 // @description  Modular Kirka.io Client
 // @match        *://kirka.io/*
 // @grant        none
+// @run-at       document-start
 // ==/UserScript==
 
 (function () {
     'use strict';
 
-    // =========================================================
-    // GLOBAL CLIENT
-    // =========================================================
-
     window.FC = {
         version: '7.0',
         modules: {},
         settings: {},
+        state: {}, // Shared state for engine/hjar/crosshair
         loaded: false,
 
         log(...msg) {
@@ -30,115 +28,79 @@
 
         register(name, module) {
             this.modules[name] = module;
-
-            this.log('Loaded module:', name);
+            this.log('Registered module:', name);
 
             if (typeof module.init === 'function') {
                 try {
                     module.init();
                 } catch (err) {
-                    console.error(`[FC] Failed init ${name}`, err);
+                    console.error(`[FC] Failed to initialize ${name}:`, err);
                 }
             }
         }
     };
 
-    // =========================================================
-    // LOAD SCRIPT FILE
-    // =========================================================
-
     function loadScript(path) {
         return new Promise((resolve, reject) => {
-
             const script = document.createElement('script');
-
-            script.src = path;
+            // Adding a timestamp to prevent GitHub caching issues during development
+            script.src = path + '?t=' + Date.now(); 
             script.onload = () => resolve(path);
             script.onerror = () => reject(path);
-
             document.head.appendChild(script);
-
         });
     }
 
-    // =========================================================
-    // GITHUB RAW BASE
-    // =========================================================
+    const BASE = 'https://raw.githubusercontent.com/FallenNightA/Kirka.io/main/';
 
-    const BASE =
-        'https://raw.githubusercontent.com/FallenNightA/Kirka.io/refs/heads/main/';
-
-    // =========================================================
-    // LOAD ORDER
-    // =========================================================
-
+    // Order is important: Core -> Utils -> UI -> Features
     const scripts = [
-
-        // CORE
+        // 1. CORE
         'core/storage.js',
         'core/events.js',
         'core/engine.js',
 
-        // UTILS
+        // 2. UTILS
         'utils/math.js',
         'utils/colors.js',
         'utils/dom.js',
 
-        // UI
+        // 3. UI
         'ui/css.js',
         'ui/toast.js',
+        'ui/global-chat-css.js',
         'ui/menu.js',
 
-        // FEATURES
+        // 4. FEATURES
         'features/crosshair.js',
         'features/hjar.js',
         'features/autoshot.js',
-        'features/hitsound.js'
-
+        'features/hitsound.js',
+        'features/keystroke-overlay.js',
+        'features/friends_ui_features.js',
+        'features/chams.js',
+        'features/accept-trade-easly.js'
     ];
 
-    // =========================================================
-    // INIT
-    // =========================================================
-
     async function init() {
-
         FC.log('Starting Fallen Client v' + FC.version);
 
         for (const file of scripts) {
-
             try {
-
                 await loadScript(BASE + file);
-
                 FC.log('Loaded:', file);
-
             } catch (e) {
-
-                console.error('[FC] Failed loading:', file);
-
+                console.error('[FC] Failed loading file:', file);
             }
-
         }
 
         FC.loaded = true;
-
-        FC.log('All modules loaded.');
-
+        FC.log('All modules and features loaded successfully.');
     }
-
-    // =========================================================
-    // DOM READY
-    // =========================================================
 
     if (document.readyState === 'loading') {
-
         document.addEventListener('DOMContentLoaded', init);
-
     } else {
-
         init();
-
     }
-
 })();
